@@ -70,40 +70,40 @@ def variational_autoencoder(pts, iterations=20):
     b, d = pts.shape
     device = pts.device
     q_net = nn.Sequential(
-        nn.Linear(d, 256),
-        nn.LayerNorm(256),
+        nn.Linear(d, 512),
+        nn.LayerNorm(512),
         nn.ReLU(),
-        nn.Linear(256, 256),
-        nn.LayerNorm(256),
+        nn.Linear(512, 512),
+        nn.LayerNorm(512),
         nn.ReLU(),
-        nn.Linear(256, 256),
-        nn.LayerNorm(256),
+        nn.Linear(512, 512),
+        nn.LayerNorm(512),
         nn.ReLU(),
-        nn.Linear(256, 256),
-        nn.LayerNorm(256),
+        nn.Linear(512, 512),
+        nn.LayerNorm(512),
         nn.ReLU(),
-        nn.Linear(256, 256),
-        nn.LayerNorm(256),
+        nn.Linear(512, 512),
+        nn.LayerNorm(512),
         nn.ReLU(),
-        nn.Linear(256, 2*d),  # d for mean, d for log_std
+        nn.Linear(512, 2*d),  # d for mean, d for log_std
     ).to(device)
     p_net = nn.Sequential(
-        nn.Linear(d, 256),
-        nn.LayerNorm(256),
+        nn.Linear(d, 512),
+        nn.LayerNorm(512),
         nn.ReLU(),
-        nn.Linear(256, 256),
-        nn.LayerNorm(256),
+        nn.Linear(512, 512),
+        nn.LayerNorm(512),
         nn.ReLU(),
-        nn.Linear(256, 256),
-        nn.LayerNorm(256),
+        nn.Linear(512, 512),
+        nn.LayerNorm(512),
         nn.ReLU(),
-        nn.Linear(256, 256),
-        nn.LayerNorm(256),
+        nn.Linear(512, 512),
+        nn.LayerNorm(512),
         nn.ReLU(),
-        nn.Linear(256, 256),
-        nn.LayerNorm(256),
+        nn.Linear(512, 512),
+        nn.LayerNorm(512),
         nn.ReLU(),
-        nn.Linear(256, 2*d),  # d for mean, d for log_std
+        nn.Linear(512, 2*d),  # d for mean, d for log_std
     ).to(device)
     optimizer = torch.optim.Adam([*q_net.parameters(), *p_net.parameters()], lr=1e-4)
 
@@ -113,36 +113,34 @@ def variational_autoencoder(pts, iterations=20):
         mu_sigma = p_net(z)
         mu = mu_sigma[:, :d]
         log_sigma = mu_sigma[:, d:]  # Allow different sigma for each dimension
-        sigma = 0.05 + torch.exp(log_sigma)
+        sigma = 0.01 + torch.exp(log_sigma)
         return torch.distributions.Normal(mu, sigma)
 
     def conditional_q_dist(x):
         mu_sigma = q_net(x)
         mu = mu_sigma[:, :d]
         log_sigma = mu_sigma[:, d:]  # Allow different sigma for each dimension
-        sigma = 0.05 + torch.exp(log_sigma)
+        sigma = 0.01 + torch.exp(log_sigma)
         return torch.distributions.Normal(mu, sigma)
     
     frames = []
     losses = []
     loader = DataLoader(pts, batch_size=256, shuffle=True)
+
+    nz = 200
+    z_visual = prior_dist.sample((nz,)) # for visualization
+
     for iter in tqdm(range(iterations)):
         """
         we need to optimize the variational loss
         L(x) = -E[log p(x | z)] + KL(q(z | x) || p(z))
         """
-        for x in tqdm(loader):
+        for x in loader:
             q_x_dist = conditional_q_dist(x)
             
-            # Sample multiple z for better estimation (using reparameterization trick)
-            z = q_x_dist.rsample()  # Use rsample() instead of sample() for reparameterization
+            z = q_x_dist.rsample()  # rsample() instead of sample() for reparameterization trick
             p_z_dist = conditional_p_dist(z)
             
-            # Current implementation:
-            # L0 = -p_z_dist.log_prob(x).mean()  # This is incorrect
-            # L1 = torch.distributions.kl_divergence(q_x_dist, prior_dist).mean()
-            
-            # Correct ELBO implementation:
             reconstruction_loss = -p_z_dist.log_prob(x).sum(dim=-1).mean()
             kl_loss = torch.distributions.kl_divergence(q_x_dist, prior_dist).mean()
             beta = 1.0  # Can be adjusted
@@ -171,9 +169,7 @@ def variational_autoencoder(pts, iterations=20):
         plt.title('KL Loss')
         show_plot(f"vae_loss")
 
-        nz = 100
-        z = prior_dist.sample((nz,))
-        p_z_dist = conditional_p_dist(z)
+        p_z_dist = conditional_p_dist(z_visual)
         gmm_plot(pts, p_z_dist, torch.ones(nz) / nz)
         show_plot("vae_reconstruction")
         frames.append(read_plot(f"vae_reconstruction"))
