@@ -6,12 +6,12 @@ Comparison of VAE and GMM.
 
 `python run.py vae_main`
 
-![vae](static/vae_reconstruction.gif)
+<img src="static/vae_reconstruction.gif" width="50%">
 
-![vae_loss](static/vae_loss.png)
+<img src="static/vae_loss.png" width="50%">
 
 ## GMM
 
 `python run.py gmm_main`
 
-![gmm](static/gmm.gif)
+<img src="static/gmm.gif" width="50%">
