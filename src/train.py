@@ -66,7 +66,7 @@ def gmm(pts, n_components=3, iterations=100):
     return dists, pi
 
 
-def variational_autoencoder(pts, iterations=20):
+def variational_autoencoder(pts, iterations=20, log_every=1):
     b, d = pts.shape
     device = pts.device
     q_net = nn.Sequential(
@@ -113,14 +113,14 @@ def variational_autoencoder(pts, iterations=20):
         mu_sigma = p_net(z)
         mu = mu_sigma[:, :d]
         log_sigma = mu_sigma[:, d:]  # Allow different sigma for each dimension
-        sigma = 0.01 + torch.exp(log_sigma)
+        sigma = torch.exp(log_sigma)
         return torch.distributions.Normal(mu, sigma)
 
     def conditional_q_dist(x):
         mu_sigma = q_net(x)
         mu = mu_sigma[:, :d]
         log_sigma = mu_sigma[:, d:]  # Allow different sigma for each dimension
-        sigma = 0.01 + torch.exp(log_sigma)
+        sigma = torch.exp(log_sigma)
         return torch.distributions.Normal(mu, sigma)
     
     frames = []
@@ -156,23 +156,24 @@ def variational_autoencoder(pts, iterations=20):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
-        plt.figure(figsize=(10, 10))
-        plt.subplot(3, 1, 1)
-        plt.plot([l['total'] for l in losses])
-        plt.title('Total Loss')
-        plt.subplot(3, 1, 2)
-        plt.plot([l['reconstruction'] for l in losses])
-        plt.title('Reconstruction Loss')
-        plt.subplot(3, 1, 3)
-        plt.plot([l['kl'] for l in losses])
-        plt.title('KL Loss')
-        show_plot(f"vae_loss")
 
-        p_z_dist = conditional_p_dist(z_visual)
-        gmm_plot(pts, p_z_dist, torch.ones(nz) / nz)
-        show_plot("vae_reconstruction")
-        frames.append(read_plot(f"vae_reconstruction"))
+        if iter % log_every == 0:
+            plt.figure(figsize=(10, 10))
+            plt.subplot(3, 1, 1)
+            plt.plot([l['total'] for l in losses])
+            plt.title('Total Loss')
+            plt.subplot(3, 1, 2)
+            plt.plot([l['reconstruction'] for l in losses])
+            plt.title('Reconstruction Loss')
+            plt.subplot(3, 1, 3)
+            plt.plot([l['kl'] for l in losses])
+            plt.title('KL Loss')
+            show_plot(f"vae_loss")
+
+            p_z_dist = conditional_p_dist(z_visual)
+            gmm_plot(pts, p_z_dist, torch.ones(nz) / nz)
+            show_plot("vae_reconstruction")
+            frames.append(read_plot(f"vae_reconstruction"))
 
     save_gif(frames, name="vae_reconstruction")
     return q_net, p_net, prior_dist
@@ -187,7 +188,7 @@ def train_vae_main():
 
     loader = DataLoader(dataset, batch_size=len(dataset), shuffle=True)
     pts = next(iter(loader)).to(device)
-    q_net, p_net, prior_dist = variational_autoencoder(pts, iterations=50)
+    q_net, p_net, prior_dist = variational_autoencoder(pts, iterations=100)
 
 
 def train_gmm_main():

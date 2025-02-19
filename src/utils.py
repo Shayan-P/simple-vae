@@ -32,7 +32,7 @@ def read_plot(name="a"):
     return plt.imread(path)
 
 
-def save_gif(images, name="a"):
+def save_gif(images, name="a", loop=True):
     path = TMP_IMAGES_DIR.joinpath(f"{name}.gif")
     
     # Get the shape of the first image
@@ -54,7 +54,7 @@ def save_gif(images, name="a"):
         else:
             resized_images.append(img)
     
-    imageio.mimsave(path, resized_images, duration=100)
+    imageio.mimsave(path, resized_images, duration=100, loop=0 if loop else 1)
     print("gif saved to: " + str(path))
 
 
